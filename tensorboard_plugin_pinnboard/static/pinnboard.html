@@ -1,0 +1,159 @@
+<script src="https://vuejs.org/js/vue.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babel-polyfill/dist/polyfill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.0.17/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+
+
+<html>
+  <head>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">    
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@3.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Material+Icons" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.0.17/dist/vuetify.min.css" rel="stylesheet">
+    <!-- <link href="" rel="stylesheet">  -->
+<style>
+  html,
+  body {
+  margin: 0px !important;
+  left: 0;
+  top: 0;      
+  height: 100%;
+   width: 100%;
+  }
+
+  html{
+      overflow: scroll;
+  }
+
+  #sidebar {
+  position: fixed;
+  top: 0px;
+  right: 0px;
+  height: 0px;
+  width: 250px;
+  z-index: 2;
+  }
+  
+  #controller {
+  height: 0px;      
+  z-index: 2;      
+  }    
+
+  .v-application--wrap{
+  min-height: 0px; !important
+  }
+  
+  #app {
+  position: absolute;
+  top: 0px;
+  height: 1000px;
+  width: 4000px;
+  overflow: hidden;  
+  }
+
+  #pinn-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;      
+  height: 1000px;
+  width: 4000px;
+  z-index: 1;
+  }
+
+  #pinn-content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding-top: 60px;
+  padding-left: 60px;  
+  height: 1000px;
+  width: 4000px;
+  z-index: 1;
+  }
+
+  .xaxis{
+  color:  #c2c2c2;
+  }
+
+  #pinn-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  height: 1000px;
+  width: 4000px;
+  }
+
+ .pinn-layer {
+  display: inline-block;
+  border-radius: 10px;
+  width: 130px;
+  margin-right: 20px;
+  margin-bottom: 20px;
+  padding: 0px;
+  vertical-align: top;
+  }
+
+  .pinn-node {
+  border-radius: 4px;
+  border: solid black 3px;
+  margin: 6px;
+  width: 100px;
+  height: 100px;
+  }
+</style>    
+  </head>
+  <body>
+    <div id="sidebar">
+      <v-app id="controller">
+	<v-expansion-panels v-model="control"><v-expansion-panel>
+	    <v-expansion-panel-header>Control Panel</v-expansion-panel-header>
+            <v-expansion-panel-content>
+	      <v-subheader>Run</v-subheader>
+	      <v-menu>
+		<template v-slot:activator="{ on }">
+		  <v-btn color="primary" v-on="on">
+		    {{ this_run }}
+		  </v-btn>
+		</template>
+		<v-list>
+		  <v-list-item v-for="(run, index) in runs" :key="index" @click="selectRun(run)" >
+		    <v-list-item-title>{{ run }}</v-list-item-title>
+		  </v-list-item>
+		</v-list>
+	      </v-menu>
+	      <v-subheader>Sample {{ sample+1 }} of {{ n_sample+1 }}</v-subheader>
+   	      <v-slider v-model="sample" min=0 :max="n_sample"></v-slider>
+	      <v-subheader>Event {{ event+1 }} of {{ n_events+1 }}</v-subheader>
+	      <v-slider v-model="event" min=0 :max="n_events"></v-slider>
+	      <v-subheader>Colormap</v-subheader>	      
+	      <svg width="100%" height="30" id="colormap">
+		<defs>
+		  <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f59322" stop-opacity="1"></stop>
+                    <stop offset="50%" stop-color="#ffffff" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#0877bd" stop-opacity="1"></stop>
+		  </linearGradient>
+		</defs>
+		<g class="core" transform="translate(10, 0)">
+		  <rect width="180" height="10" style="fill: url('#gradient');"></rect>
+		</g>
+              </svg>
+	    </v-expansion-panel-content>
+	</v-expansion-panel></v-expansion-panels>
+      </v-app>
+    </div>      
+    <div id="app">
+      <canvas id='pinn-canvas'></canvas>
+      <div id='pinn-content'></div>
+      <svg id='pinn-links'></svg>      
+    </div>
+  </body>
+</html>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://threejs.org/build/three.min.js"></script>
+<script src="https://rawgit.com/mrdoob/three.js/master/examples/js/controls/OrthographicTrackballControls.js"></script>
+<script src="./core.js"></script>
+
+
