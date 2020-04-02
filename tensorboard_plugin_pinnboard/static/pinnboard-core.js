@@ -31,36 +31,40 @@ var app = new Vue({
     getData: function() {
       getData(this);
     },
-    update: function(){
-      const Http = new XMLHttpRequest();
-      const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;  
-      Http.open("GET", url);
-      Http.send();
-      Http.onreadystatechange = (e) => {
-	if (Http.readyState == 4 && Http.status == 200) {
-	  data = JSON.parse(Http.responseText);
-	  atoms_tmp = {coord: data.coord, elems: data.elems,
-		   diff: data.diff, ind_2: data.ind_2}
-	  tensors = data;
-	    
-	  tmp = readTensors(tensors);
-	  layers = tmp[0];
-	  weights = tmp[1];
-	    
-          if (JSON.stringify(atoms_tmp) !== JSON.stringify(atoms))
-	    {atoms=atoms_tmp;
-	     drawLayers(layers, frames, atoms)}
-	  // Set the colors
-	  weights.map((weight, i) => setLinkColors(weight.val, links[i]));
-	  layers.map(layer => setLayerColor(layer, frames))}}
+    async update (){
+      if (this.running){this.next=()=>this.update(request)}
+      const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;
+      let response = await fetch(url).then(res => res.text());
+      if  (this.prev) {
+        this.prev = this.prev.then(() => this.redraw(response))
+      } else {
+        this.prev = this.redraw(response)
+      }
     },
+    redraw: function (response){
+      data = JSON.parse(response);
+      atoms_tmp = {coord: data.coord, elems: data.elems,
+                   diff: data.diff, ind_2: data.ind_2}
+      tensors = data;
+      tmp = readTensors(tensors);
+      layers = tmp[0];
+      weights = tmp[1];
+      if (JSON.stringify(atoms_tmp) !== JSON.stringify(atoms))
+      {atoms=atoms_tmp;
+       drawLayers(layers, frames, atoms)}
+      // Set the colors
+      weights.map((weight, i) => setLinkColors(weight.val, links[i]));
+      layers.map(layer => setLayerColor(layer, frames))
+      return new Promise();
+    }
   },
     watch:{
       sample: function(){this.slowUpdate()},
       event: function(){this.slowUpdate()}      
     },
     created: function () {
-	this.slowUpdate = _.throttle(this.update, 10)
+      this.slowUpdate = _.throttle(this.update, 20);
+      this.slowRedraw = _.throttle(this.redraw, 20)
     },
 })
 
@@ -404,10 +408,10 @@ function render() {
         return
       }
 
-      var width = rect.right - rect.left;
-      var height = rect.bottom - rect.top;
-      var left = rect.left - canvas.getBoundingClientRect().left;
-      var bottom = canvas.getBoundingClientRect().bottom - rect.bottom;
+      var width = rect.right - rect.left - 4;
+      var height = rect.bottom - rect.top - 4;
+      var left = rect.left - canvas.getBoundingClientRect().left + 3;
+      var bottom = canvas.getBoundingClientRect().bottom - rect.bottom + 2;
       var camera = scene.userData.camera;
       renderer.setViewport(left, bottom, width, height);
       renderer.setScissor(left, bottom, width, height);
