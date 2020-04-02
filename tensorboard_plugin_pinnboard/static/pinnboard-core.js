@@ -115,7 +115,7 @@ function getData(app){
       scenes.forEach(scene => {
         var controls = new THREE.OrthographicTrackballControls(
         		scene.userData.camera, scene.userData.element);
-  			controls.zoomSpeed = 0.5;
+  			controls.zoomSpeed = 0.01;
   			controls.noPan = true;
         scene.userData.controls = controls;
   })
@@ -177,7 +177,7 @@ function drawFrames(layers) {
   var max_g = Math.max(...layers.map(layer => layer.g)) + 1;
   var max_c = Math.max(...layers.map(layer => layer.c)) + 1;
 
-  var canvas_w = (max_c * 150 + 100).toString()+"px";
+  var canvas_w = (max_c * 150 + 300).toString()+"px";
   var g_h = Array(max_g).fill(0);
   layers.forEach((layer) => g_h[layer.g] = Math.max(g_h[layer.g],layer.val.length));
   var canvas_h = g_h.map(x => 20+x*106).reduce((a,b) => a+b, 0) + 100;  
