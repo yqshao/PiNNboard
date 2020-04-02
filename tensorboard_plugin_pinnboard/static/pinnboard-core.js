@@ -34,15 +34,16 @@ var app = new Vue({
     async update (){
       if (this.running){this.next=()=>this.update(request)}
       const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;
-      let response = await fetch(url).then(res => res.text());
-      if  (this.prev) {
-        this.prev = this.prev.then(() => this.redraw(response))
+      response = fetch(url).then(res => res.text());
+      if (this.prev) {
+        this.prev = Promise.all([response, this.prev])
+          .then((response, prev) => this.redraw(response[0]))
       } else {
-        this.prev = this.redraw(response)
+        this.prev = response.then(response => this.redraw(response));
       }
     },
-    redraw: function (response){
-      data = JSON.parse(response);
+    async redraw (response){
+      data = JSON.parse(await response);
       atoms_tmp = {coord: data.coord, elems: data.elems,
                    diff: data.diff, ind_2: data.ind_2}
       tensors = data;
@@ -55,7 +56,6 @@ var app = new Vue({
       // Set the colors
       weights.map((weight, i) => setLinkColors(weight.val, links[i]));
       layers.map(layer => setLayerColor(layer, frames))
-      return new Promise();
     }
   },
     watch:{
@@ -63,8 +63,8 @@ var app = new Vue({
       event: function(){this.slowUpdate()}      
     },
     created: function () {
-      this.slowUpdate = _.throttle(this.update, 20);
-      this.slowRedraw = _.throttle(this.redraw, 20)
+      this.slowUpdate = _.throttle(this.update, 50);
+      this.slowRedraw = _.throttle(this.redraw, 50)
     },
 })
 
