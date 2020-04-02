@@ -95,7 +95,7 @@ class PiNNboard(base_plugin.TBPlugin):
     this_ind_2 = this_ind_1[data['ind_2'][:,0]]
 
     for key in data.keys():
-      if data[key].shape[-1] == 0:
+      if data[key].shape[0] == 0:
         continue
       if key in ['elems', 'coord'] or key.startswith('node_p'):
         data[key] = data[key][this_ind_1]

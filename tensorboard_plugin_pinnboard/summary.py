@@ -1,5 +1,135 @@
 import tensorflow as tf
 from tensorboard_plugin_pinnboard.metadata import PLUGIN_NAME
+from pinn.networks import PiNet
+
+
+def trace_layer_io(layer):
+  if hasattr(layer, '_traced_io') and layer._traced_io:
+    return
+  # Wrap the call function to record
+  # the input/output tensors
+  # this works only in eager mode
+  old_call = layer.call
+  def new_call(tensors):
+    layer._input = tensors
+    output = old_call(tensors)
+    layer._output = output
+    return output
+  layer.call = new_call
+  layer._traced_io = True
+
+
+def recursive_trace_io(target):
+  import inspect
+  if issubclass(type(target), tf.keras.layers.Layer):
+    trace_layer_io(target)
+    for k, attr in target.__dict__.items():
+      if not k.startswith('_') and k!='layers':
+        recursive_trace_io(attr)
+        if isinstance(attr, list):
+          for item in attr:
+            recursive_trace_io(item)
+
+
+def pinet2summary(pinet, use_pi_gradient=True, **kwargs):
+  tensors = {
+    'elems': pinet.preprocess._output['elems'],
+    'coord': pinet.preprocess._output['coord'],
+    'ind_1': pinet.preprocess._output['ind_1'],
+    'ind_2': pinet.preprocess._output['ind_2'],
+    'diff': pinet.preprocess._output['diff'],
+    'node_p_g0_c0': [],
+    'node_p_g0_c1': pinet.gc_blocks[0]._input[1]
+  }
+  prev_node = 'g0_c1'
+  count = 1
+  n_basis = pinet.basis_fn._output.shape[-1]
+
+  for i, gc_block in enumerate(pinet.gc_blocks):
+    # PP layers
+    for j, dense in enumerate(gc_block.pp_layer.dense_layers):
+      count += 1
+      this_node = f'g0_c{count}'
+      tensors[f'node_p_{this_node}'] = dense._output
+      tensors[f'weight_{prev_node}_{this_node}'] = dense.kernel
+      prev_node = this_node
+    count += 1
+    prev_p_node = prev_node
+
+    # PI layer
+    if use_pi_gradient:
+      # Go through the PI layer once more to get the
+      # dI/dP_i dI/dP_j gradients for visualization
+      pi_inp = gc_block.pi_layer._input
+      with tf.GradientTape(persistent=True) as gtape:
+        gtape.watch(pi_inp[1])
+        pi_out = gc_block.pi_layer(pi_inp)
+        pi_out = [pi_out[:,j] for j in range(pi_out.shape[-1])]
+        dense_inp = gc_block.pi_layer.ff_layer.dense_layers[0]._input
+      pi_kernel = tf.stack(
+        [tf.reduce_mean(gtape.gradient(pi_out_slice, dense_inp), axis=0)
+          for pi_out_slice in pi_out], axis = -1)
+      n_in =  int(pi_kernel.shape[0])
+      n_out = int(pi_kernel.shape[1])
+    else: #just use the kernels from the dense layer
+      pi_kernel = gc_block.pi_layer.ff_layer.dense_layers[0].kernel
+      for dense in gc_block.pi_layer.ff_layer.dense_layers[1:]:
+        pi_kernel = tf.matmul(pi_kernel, dense.kernel)
+      n_in =  int(pi_kernel.shape[0])
+      n_out = int(pi_kernel.shape[1])//n_basis
+      pi_kernel = tf.reshape(pi_kernel, [n_in, n_out, n_basis])
+      pi_kernel = tf.norm(pi_kernel, axis=-1)
+    # either way we get a [n_prop*2, n_inter] kernel, now we slice them
+    pi_kernel_1 = tf.slice(pi_kernel, [0,0], [n_in//2,n_out])
+    pi_kernel_2 = tf.slice(pi_kernel, [n_in//2, 0], [n_in//2,n_out])
+    this_node = f'g0_c{count}'
+    tensors[f'node_i_{this_node}'] = gc_block.pi_layer._output
+    tensors[f'weight_{prev_node}_{this_node}_1'] = pi_kernel_1
+    tensors[f'weight_{prev_node}_{this_node}_2'] = pi_kernel_2
+    count = count +1
+    prev_node = this_node
+
+    # II layer
+    for dense in gc_block.ii_layer.dense_layers:
+      this_node = f'g0_c{count}'
+      tensors[f'node_i_{this_node}'] = dense._output
+      tensors[f'weight_{prev_node}_{this_node}'] = dense.kernel
+      prev_node = this_node
+      count += 1
+    tensors[f'node_p_{this_node}'] = gc_block.ip_layer._output
+
+    # ResUpdate block
+    res_update = pinet.res_update[i]
+    this_node = f'g0_c{count}'
+    tensors[f'weight_{prev_p_node}_{this_node}_2'] = []
+    if isinstance(res_update.transform, tf.keras.layers.Dense):
+      tensors[f'weight_{prev_node}_{this_node}_1']= res_update.transform.kernel
+    else:
+      tensors[f'weight_{prev_node}_{this_node}_1']= []
+    tensors['node_p_{}'.format(this_node)] = res_update._output
+    prev_node = this_node
+
+    # Output block
+    out_group = 0 if len(pinet.output_layers) == 1 else 1
+    out_count = count
+    prev_out_node = prev_node
+    output_layer = pinet.output_layers[i]
+
+    for dense in output_layer.ff_layer.dense_layers:
+      out_count += 1
+      this_node = f'g{out_group}_c{out_count}'
+      tensors[f'node_p_{this_node}'] = dense._output
+      tensors[f'weight_{prev_out_node}_{this_node}'] = dense.kernel
+      prev_out_node = this_node
+    out_count += 1
+    this_node = f'g{out_group}_c{out_count}'
+    tensors[f'node_p_{this_node}'] = output_layer.out_layer._output
+    tensors[f'weight_{prev_out_node}_{this_node}'] = output_layer.out_layer.kernel
+    if i==0:
+      last_out_node = this_node
+    else:
+      tensors[f'weight_{last_out_node}_{this_node}']=[]
+  return tensors
 
 def pinnboard_tensors(params):
   if params['network'] != 'pinet':
@@ -105,32 +235,43 @@ def pinnboard_tensors(params):
     for k, v in mapping.items()}
   return tensors
 
-  
-def pinnboard_summary(params,
-       display_name=None,
-       description=None,
-       collections=None):
-  """Create a TensorFlow summary op to greet the given guest.
 
-  Arguments:
-    params: parameter dictionary of the model
-    display_name: If set, will be used as the display name
-      in TensorBoard. Defaults to `name`.
-    description: A longform readable description of the summary data.
-      Markdown is supported.
-    collections: Which TensorFlow graph collections to add the summary
-      op to. Defaults to `['summaries']`. Can usually be ignored.
-  """
-  tensors = pinnboard_tensors(params)
-  summary_metadata = {k: tf.SummaryMetadata(
-      summary_description=description,
-      plugin_data=tf.SummaryMetadata.PluginData(
-      plugin_name=PLUGIN_NAME)) for k in tensors.keys()}
-  
-  summary_op = {
-    k:tf.summary.tensor_summary(
-      'pinnboard.'+k, val,
-      summary_metadata=summary_metadata[k], collections=collections)
-    for k, val in tensors.items()}
-  # Return disctionary of configured summary operations
-  return summary_op
+
+def write_pinnboard_summary(model, sample, step):
+  """This works in eager mode so far..."""
+  from tensorflow.python.eager import context
+  recursive_trace_io(model)
+  with context.eager_mode():
+    model(sample)
+  if isinstance(model, PiNet):
+    summary = pinet2summary(model)
+  else:
+    raise NotImplementedError("This model seems unsupported by PiNNBoard")
+
+  metadata = tf.compat.v1.SummaryMetadata(
+          summary_description='',
+          plugin_data=tf.compat.v1.SummaryMetadata.PluginData(plugin_name=PLUGIN_NAME))
+
+  for k,v in summary.items():
+    with tf.summary.experimental.summary_scope(f'pinnboard.{k}', "", [v, step]) as (tag, _):
+      tf.summary.write(tag, v, step=step, metadata=metadata)
+
+
+class PiNNBoardCallback(tf.keras.callbacks.Callback):
+    def __init__(self, logdir, sample, freq=10):
+      self.writer = tf.summary.create_file_writer(logdir)
+      self.freq = freq
+      self.step = 0
+      if issubclass(type(sample), tf.data.Dataset):
+        self.sample = next(iter(sample))
+      else:
+        self.sample = sample
+
+    def _write_summary(self, step):
+      with self.writer.as_default():
+        write_pinnboard_summary(self.model, self.sample, step)
+
+    def on_batch_end(self, batch, logs=None):
+      if self.step%self.freq == 0:
+        self._write_summary(self.step)
+      self.step += 1
