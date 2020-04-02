@@ -218,7 +218,8 @@ function drawFrames(layers) {
     if (frames[layer.g][layer.c].dom.hasChildNodes()) {
       return
     }
-    layer.val.forEach(function() {
+    const n_node = Math.max(layer.val.length, 1);
+    for (i=0; i<n_node; i++) {
       node = document.createElement("div");
       node.className = "pinn-node";
       frames[layer.g][layer.c].dom.appendChild(node);
@@ -230,7 +231,7 @@ function drawFrames(layers) {
         scene: scene
       });
       scenes.push(scene);
-    });
+    };
   });
 
   return frames
@@ -362,6 +363,7 @@ function setLayerColor(layer) {
 }
 
 function setAtomColors(obj, val) {
+  if (!val){return};
   obj.children.forEach(
     function(child, idx) {
       child.material.color.set(myscale(val[idx]));
@@ -427,11 +429,11 @@ function updateSize() {
 
 function setLinkColors(weights, links) {
   wdim1 = weights.length;
-  wdim2 = weights[0].length;
-  if (!wdim2) {
+  if (!wdim1) {
     links.forEach(
             (link) => link.attr("stroke",'#999999'))
   } else {
+    wdim2 = weights[0].length;
     weights.forEach((wi, i) =>
       wi.forEach((wij, j) => links[i][j].attr("stroke", myscale(wij))))
   }
@@ -441,14 +443,14 @@ function drawLinks(weights, froms, tos) {
   fromdim = froms.length;
   todim = tos.length;
   wdim1 = weights.val.length;
-  wdim2 = weights.val[0].length;
 
   len = 106 / (tos.inputs + 1);
   offset = (weights.order) * len;
-  if (!wdim2) {
+  if (!wdim1) {
     links = froms.map(
       (from, i) => drawLink(froms[i], tos[i], offset, false))
   } else {
+    wdim2 = weights.val[0].length;
     links = weights.val.map((wi, i) =>
       wi.map((wij, j) => drawLink(froms[i], tos[j],
         offset + (i / (wdim1 - 1.) - 0.5) / 5 * len)))
