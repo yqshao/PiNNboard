@@ -58,6 +58,7 @@ var app = new Vue({
       {atoms=atoms_tmp;
        drawLayers(layers, frames, atoms)}
       // Set the colors
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       weights.map((weight, i) => setLinkColors(weight.val, links[i]));
       layers.map(layer => setLayerColor(layer, frames))
     }
@@ -82,6 +83,10 @@ const myscale = d3.scaleLinear().domain([-1, 0, 1])
 var scenes = [];
 var canvas = document.getElementById("pinn-canvas");
 var content = document.getElementById("pinn-content");
+var thisapp = document.getElementById("app");
+var ctx = document.getElementById("pinn-links").getContext("2d");
+var linker = d3.linkHorizontal().x(d => d.x).y(d => d.y);
+
 
 var renderer = new THREE.WebGLRenderer({
   canvas: canvas,
@@ -185,7 +190,7 @@ function drawFrames(layers) {
   var max_g = Math.max(...layers.map(layer => layer.g)) + 1;
   var max_c = Math.max(...layers.map(layer => layer.c)) + 1;
 
-  var canvas_w = (max_c * 150 + 300).toString()+"px";
+  var canvas_w = (max_c * 150 + 300);
   var g_h = Array(max_g).fill(0);
   layers.forEach((layer) => g_h[layer.g] = Math.max(g_h[layer.g],layer.val.length));
   var canvas_h = g_h.map(x => 20+x*106).reduce((a,b) => a+b, 0) + 100;  
@@ -193,16 +198,14 @@ function drawFrames(layers) {
   ["app", "pinn-canvas", "pinn-links", "pinn-content"].forEach(
     dom => {
       document.getElementById(dom).style.width = canvas_w;
-      document.getElementById(dom).style.height = canvas_h;      
+      document.getElementById(dom).style.height = canvas_h;
     }
-  )  
-
+  )
   while (content.firstChild) {
     content.removeChild(content.firstChild);
   }
-
-  d3.selectAll('#pinn-links *').remove();
-  svgcanvas = d3.select("#pinn-links");
+  ctx.canvas.height = canvas_h;
+  ctx.canvas.width = canvas_w;
   scenes.forEach(scene  => clearThree(scene));
   frames = [];
   for (g = 0; g < max_g; g++) {
@@ -434,16 +437,28 @@ function updateSize() {
   }
 }
 
+function simple_draw(data, color, dash){
+  ctx.lineWidth = 2;
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  linker.context(ctx)(data);
+  ctx.stroke();
+}
 
 function setLinkColors(weights, links) {
   wdim1 = weights.length;
   if (!wdim1) {
     links.forEach(
-            (link) => link.attr("stroke",'#999999'))
+      (link) => simple_draw(link, "#999999", []))
   } else {
     wdim2 = weights[0].length;
     weights.forEach((wi, i) =>
-      wi.forEach((wij, j) => links[i][j].attr("stroke", myscale(wij))))
+                    wi.forEach(
+                      (wij, j) =>
+                        {if (Math.abs(wij)>0.3)
+                         simple_draw(links[i][j], myscale(wij), [10,2])}
+                    ))
   }
 }
 
@@ -466,7 +481,7 @@ function drawLinks(weights, froms, tos) {
   return links
 }
 
-function drawLink(from, to, offset = 0, dashed = true) {
+function drawLink(from, to, offset = 0) {
   box1 = from.dom.getBoundingClientRect();
   box2 = to.dom.getBoundingClientRect();
   canvasleft = canvas.getBoundingClientRect().left + 3;
@@ -481,13 +496,7 @@ function drawLink(from, to, offset = 0, dashed = true) {
       y: box2.bottom - 106 + offset
     }
   }
-  var link = d3.linkHorizontal().x(d => d.x).y(d => d.y);
-  var line = svgcanvas.append("path").attr("fill", "none")
-    .attr("class", "links")
-    .attr("d", link(data)).attr('stroke-width', '2px');
-  if (dashed) {
-    line.style("stroke-dasharray", ("10, 2"))
-  }
+  var line = data
   return line
 }
 
@@ -502,11 +511,10 @@ function initialize(atoms, tenors) {
   });
   links = weights.map(weight => drawLinks(weight,
     frames[weight.from.g][weight.from.c], frames[weight.to.g][weight.to.c]));
-
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  weights.map((weight, i) => setLinkColors(weight.val, links[i]));
   // Draw the Atoms and bonds
   drawLayers(layers, frames, atoms);
-  // Set the colors
-  weights.map((weight, i) => setLinkColors(weight.val, links[i]));
   layers.map(layer => setLayerColor(layer, frames));
 }
 
