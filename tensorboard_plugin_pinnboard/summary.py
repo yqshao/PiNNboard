@@ -1,9 +1,9 @@
 import tensorflow as tf
 from tensorboard_plugin_pinnboard.metadata import PLUGIN_NAME
-from pinn.networks import PiNet
+from pinn.networks import PiNet, BPNN
 
 
-def trace_layer_io(layer):
+def trace_layer(layer):
   if hasattr(layer, '_traced_io') and layer._traced_io:
     return
   # Wrap the call function to record
@@ -18,17 +18,39 @@ def trace_layer_io(layer):
   layer.call = new_call
   layer._traced_io = True
 
-
-def recursive_trace_io(target):
-  import inspect
+def recursive_trace(target):
+  from pinn.io.base import flatten_nested
   if issubclass(type(target), tf.keras.layers.Layer):
-    trace_layer_io(target)
+    trace_layer(target)
     for k, attr in target.__dict__.items():
       if not k.startswith('_') and k!='layers':
-        recursive_trace_io(attr)
-        if isinstance(attr, list):
-          for item in attr:
-            recursive_trace_io(item)
+        for item in flatten_nested(attr):
+          recursive_trace(item)
+
+def bpnn2summary(bpnn, **kwargs):
+  tensors = {
+    'elems': bpnn.preprocess._output['elems'],
+    'coord': bpnn.preprocess._output['coord'],
+    'ind_1': bpnn.preprocess._output['ind_1'],
+    'ind_2': bpnn.preprocess._output['ind_2'],
+    'diff': bpnn.preprocess._output['diff'],
+    'node_p_g0_c0': [],
+  }
+  ff_layers = bpnn.feed_forward.ff_layers
+  max_depth = max([len(ff_layer) for ff_layer in ff_layaers.values()])
+
+  for i, (k, ff_layer) in enumerate(ff_layers.items()):
+    tensors[f'node_p_g{i}_c1'] = ff_layer._input
+    indices = tf.where(tf.equal(tensors['elems'], k))[:,0]
+    for j, dense in ff_layer:
+      hidden = dense._output
+      hidden = tf.math.unsorted_segment_sum(
+        hidden, indices, tf.shape(tensors['ind_1'])[0])
+      tensors[f'node_p_g{i}_c{j+2}'] = hidden
+      tensors[f'weight_g{i}_c{j+1}_g{i}_c{j+2}'] = dense.kernel
+    tensors[f'weight_g{i}_c{j+2}_g0_c{max_depth+2}'] = []
+  tensors[f'node_g0_c{max_depth+2}'] = bpnn.feed_forward._ouput
+  return tensors
 
 
 def pinet2summary(pinet, use_pi_gradient=True, **kwargs):
@@ -235,16 +257,42 @@ def pinnboard_tensors(params):
     for k, v in mapping.items()}
   return tensors
 
+def bpnn2summary(bpnn, **kwargs):
+  tensors = {
+    'elems': bpnn.preprocess._output['elems'],
+    'coord': bpnn.preprocess._output['coord'],
+    'ind_1': bpnn.preprocess._output['ind_1'],
+    'ind_2': bpnn.preprocess._output['ind_2'],
+    'diff': bpnn.preprocess._output['diff'],
+    'node_p_g0_c0': [],
+  }
+  ff_layers = bpnn.feed_forward.ff_layers
+  max_depth = max([len(ff_layer) for ff_layer in ff_layers.values()])
 
+  for i, (k, ff_layer) in enumerate(ff_layers.items()):
+    indices = tf.where(tf.equal(tensors['elems'], k))[:,0]
+    tensors[f'node_p_g{i}_c1'] = tf.math.unsorted_segment_sum(
+        ff_layer[0]._input, indices, tf.shape(tensors['ind_1'])[0])
+    for j, dense in enumerate(ff_layer):
+      hidden = dense._output
+      hidden = tf.math.unsorted_segment_sum(
+        hidden, indices, tf.shape(tensors['ind_1'])[0])
+      tensors[f'node_p_g{i}_c{j+2}'] = hidden
+      tensors[f'weight_g{i}_c{j+1}_g{i}_c{j+2}'] = dense.kernel
+    tensors[f'weight_g{i}_c{j+2}_g0_c{max_depth+2}'] = []
+  tensors[f'node_p_g0_c{max_depth+2}'] = bpnn.feed_forward._output
+  return tensors
 
 def write_pinnboard_summary(model, sample, step):
   """This works in eager mode so far..."""
   from tensorflow.python.eager import context
-  recursive_trace_io(model)
+  recursive_trace(model)
   with context.eager_mode():
     model(sample)
   if isinstance(model, PiNet):
     summary = pinet2summary(model)
+  elif isinstance(model, BPNN):
+    summary = bpnn2summary(model)
   else:
     raise NotImplementedError("This model seems unsupported by PiNNBoard")
 
