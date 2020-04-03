@@ -13,9 +13,11 @@ var app = new Vue({
     control: 0,
     runs: ["Not found"],
     event: 0,
+    events: {},
     n_events: 100,
     sample: 0,
     n_sample: 10,
+    prev: Promise.resolve(),
     this_run: "Select run"
   },
   methods: {
@@ -25,6 +27,7 @@ var app = new Vue({
       this.n_sample = this.runinfo[run].n_sample-1;
       this.n_events = this.runinfo[run].n_events-1;
       this.event = 0;
+      this.events = {};
       this.sample = 0;
       this.getData();
     },
@@ -32,14 +35,15 @@ var app = new Vue({
       getData(this);
     },
     async update (){
-      if (this.running){this.next=()=>this.update(request)}
-      const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;
-      response = fetch(url).then(res => res.text());
-      if (this.prev) {
+      if (this.events[this.event]){
+        const evt = this.event;
+        this.prev = this.prev.then(()=>{this.slowRedraw(this.events[evt])})
+      }else{
+        const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;
+        const evt = this.event;
+        response = fetch(url).then(res => res.text());
         this.prev = Promise.all([response, this.prev])
-          .then((response, prev) => this.redraw(response[0]))
-      } else {
-        this.prev = response.then(response => this.redraw(response));
+          .then(response => {this.events[evt] = response[0], this.slowRedraw(response[0])})
       }
     },
     async redraw (response){
@@ -59,7 +63,7 @@ var app = new Vue({
     }
   },
     watch:{
-      sample: function(){this.slowUpdate()},
+      sample: function(){this.events={}; this.slowUpdate();},
       event: function(){this.slowUpdate()}      
     },
     created: function () {
