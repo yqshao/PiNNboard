@@ -132,12 +132,12 @@ def pinet2summary(pinet, use_pi_gradient=True, **kwargs):
     prev_node = this_node
 
     # Output block
-    out_group = 0 if len(pinet.output_layers) == 1 else 1
+    out_group = 0 if len(pinet.out_layers) == 1 else 1
     out_count = count
     prev_out_node = prev_node
-    output_layer = pinet.output_layers[i]
+    out_layer = pinet.out_layers[i]
 
-    for dense in output_layer.ff_layer.dense_layers:
+    for dense in out_layer.ff_layer.dense_layers:
       out_count += 1
       this_node = f'g{out_group}_c{out_count}'
       tensors[f'node_p_{this_node}'] = dense._output
@@ -145,8 +145,8 @@ def pinet2summary(pinet, use_pi_gradient=True, **kwargs):
       prev_out_node = this_node
     out_count += 1
     this_node = f'g{out_group}_c{out_count}'
-    tensors[f'node_p_{this_node}'] = output_layer.out_layer._output
-    tensors[f'weight_{prev_out_node}_{this_node}'] = output_layer.out_layer.kernel
+    tensors[f'node_p_{this_node}'] = out_layer.out_units._output
+    tensors[f'weight_{prev_out_node}_{this_node}'] = out_layer.out_units.kernel
     if i==0:
       last_out_node = this_node
     else:
