@@ -123,11 +123,11 @@ def pinet2summary(pinet, use_pi_gradient=True, **kwargs):
     # ResUpdate block
     res_update = pinet.res_update[i]
     this_node = f'g0_c{count}'
-    tensors[f'weight_{prev_p_node}_{this_node}_2'] = []
+    tensors[f'weight_{prev_node}_{this_node}_2'] = []
     if isinstance(res_update.transform, tf.keras.layers.Dense):
-      tensors[f'weight_{prev_node}_{this_node}_1']= res_update.transform.kernel
+      tensors[f'weight_{prev_p_node}_{this_node}_1']= res_update.transform.kernel
     else:
-      tensors[f'weight_{prev_node}_{this_node}_1']= []
+      tensors[f'weight_{prev_p_node}_{this_node}_1']= []
     tensors['node_p_{}'.format(this_node)] = res_update._output
     prev_node = this_node
 
