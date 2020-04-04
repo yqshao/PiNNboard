@@ -58,9 +58,10 @@ var app = new Vue({
       {atoms=atoms_tmp;
        drawLayers(layers, frames, atoms)}
       // Set the colors
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       weights.map((weight, i) => setLinkColors(weight.val, links[i]));
-      layers.map(layer => setLayerColor(layer, frames))
+      layers.map(layer => setLayerColor(layer, frames));
+      old_cam = reset_cam;
     }
   },
     watch:{
@@ -85,8 +86,7 @@ var canvas = document.getElementById("pinn-canvas");
 var content = document.getElementById("pinn-content");
 var thisapp = document.getElementById("app");
 var ctx = document.getElementById("pinn-links").getContext("2d");
-var linker = d3.linkHorizontal().x(d => d.x).y(d => d.y);
-
+var linker = d3.linkHorizontal();
 
 var renderer = new THREE.WebGLRenderer({
   canvas: canvas,
@@ -98,6 +98,10 @@ var links;
 var frames;
 var camera = new THREE.OrthographicCamera(-4, 4, 4, -4, 1, 1000);
 camera.position.z = 8;
+const reset_cam = {x:null, y:null, z:null, zoom:null};
+var old_cam = reset_cam;
+window.addEventListener('scroll', ()=> {old_cam=reset_cam});
+window.addEventListener('resize', ()=> {old_cam=reset_cam});
 
 // Draw the colormap
 let x = d3.scaleLinear().domain([-1, 1]).range([0, 179]);
@@ -122,14 +126,14 @@ function getData(app){
     if (Http.readyState == 4 && Http.status == 200) {
       data = JSON.parse(Http.responseText);
       atoms = {coord: data.coord, elems: data.elems,
-	       diff: data.diff, ind_2: data.ind_2}
+         diff: data.diff, ind_2: data.ind_2}
       tensors = data;
       initialize(atoms,tensors);
       scenes.forEach(scene => {
         var controls = new THREE.OrthographicTrackballControls(
-        		scene.userData.camera, scene.userData.element);
-  			controls.zoomSpeed = 0.01;
-  			controls.noPan = true;
+            scene.userData.camera, scene.userData.element);
+        controls.zoomSpeed = 0.01;
+        controls.noPan = true;
         scene.userData.controls = controls;
   })
       animate();
@@ -195,7 +199,7 @@ function drawFrames(layers) {
   layers.forEach((layer) => g_h[layer.g] = Math.max(g_h[layer.g],layer.val.length));
   var canvas_h = g_h.map(x => 20+x*106).reduce((a,b) => a+b, 0) + 100;  
 
-  ["app", "pinn-canvas", "pinn-links", "pinn-content"].forEach(
+  ["app","pinn-links", "pinn-content"].forEach(
     dom => {
       document.getElementById(dom).style.width = canvas_w;
       document.getElementById(dom).style.height = canvas_h;
@@ -343,7 +347,7 @@ function makeBond(coord, diff, group) {
   orientation.lookAt(new THREE.Vector3(0, 0, 0), diff, new THREE.Vector3(0, 1, 0));
   offsetRotation.makeRotationX(HALF_PI);
   orientation.multiply(offsetRotation);
-  geo.applyMatrix(orientation)
+  geo.applyMatrix4(orientation)
   var bond = new THREE.Mesh(geo,black);
   bond.position.set(position.x, position.y, position.z);
   group.add(bond);
@@ -403,6 +407,7 @@ function setBondColors(obj, val) {
 function render() {
   updateSize();
   canvas.style.transform = `translateY(${window.scrollY}px)`;
+  canvas.style.transform += `translateX(${window.scrollX}px)`;
   renderer.setClearColor(0xffffff, 0);
   renderer.setScissorTest(false);
   renderer.clear();
@@ -414,7 +419,7 @@ function render() {
       var rect = element.getBoundingClientRect();
 
       if (rect.bottom < 0 || rect.top > renderer.domElement.clientHeight ||
-        rect.right < 0 || rect.left > renderer.domElement.clientWidth) {
+          rect.right < 0 || rect.left > renderer.domElement.clientWidth) {
         return
       }
 
@@ -425,7 +430,6 @@ function render() {
       var camera = scene.userData.camera;
       renderer.setViewport(left, bottom, width, height);
       renderer.setScissor(left, bottom, width, height);
-      scene.userData.controls.update();
       renderer.render(scene, camera)
     });
 }
@@ -435,25 +439,22 @@ function updateSize() {
   var width = canvas.clientWidth;
   var height = canvas.clientHeight;
   renderer.setSize(width, height, false);
-  if (canvas.width !== width || canvas.height !== height) {
-    renderer.setSize(width, height, false);
-  }
 }
 
 function simple_draw(data, color, dash){
-  ctx.lineWidth = 2;
-  ctx.setLineDash(dash);
   ctx.beginPath();
-  ctx.strokeStyle = color;
   linker.context(ctx)(data);
+  ctx.strokeStyle = color;
   ctx.stroke();
 }
 
 function setLinkColors(weights, links) {
   wdim1 = weights.length;
   if (!wdim1) {
+    ctx.setLineDash([]);
     links.forEach(
-      (link) => simple_draw(link, "#999999", []))
+      (link) => simple_draw(link, "#666666", []))
+    ctx.setLineDash([10, 4]);
   } else {
     wdim2 = weights[0].length;
     weights.forEach((wi, i) =>
@@ -487,20 +488,13 @@ function drawLinks(weights, froms, tos) {
 function drawLink(from, to, offset = 0) {
   box1 = from.dom.getBoundingClientRect();
   box2 = to.dom.getBoundingClientRect();
-  canvasleft = canvas.getBoundingClientRect().left + 3;
-
+  cleft = content.getBoundingClientRect().left;
+  cbot = content.getBoundingClientRect().top ;
   var data = {
-    source: {
-      x: box1.left + 103 - canvasleft,
-      y: box1.bottom - 53
-    },
-    target: {
-      x: box2.left - canvasleft + 3,
-      y: box2.bottom - 106 + offset
-    }
+    source: [box1.left + 100 - cleft, box1.bottom -cbot- 53],
+    target: [box2.left - cleft, box2.bottom - cbot - 106 + offset]
   }
-  var line = data
-  return line
+  return data
 }
 
 function initialize(atoms, tenors) {
@@ -512,18 +506,34 @@ function initialize(atoms, tenors) {
   weights.forEach(weight => {
     weight.order = frames[weight.to.g][weight.to.c].inputs += 1
   });
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.lineWidth = 2;
   links = weights.map(weight => drawLinks(weight,
     frames[weight.from.g][weight.from.c], frames[weight.to.g][weight.to.c]));
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.setLineDash([10, 2])
   weights.map((weight, i) => setLinkColors(weight.val, links[i]));
+  old_cam = reset_cam;
   // Draw the Atoms and bonds
   drawLayers(layers, frames, atoms);
   layers.map(layer => setLayerColor(layer, frames));
 }
 
+function cam_changed () {
+  return !(
+    Math.abs(old_cam.x - camera.position.x) < 0.001 &&
+    Math.abs(old_cam.y - camera.position.y) < 0.001 &&
+    Math.abs(old_cam.z - camera.position.z) < 0.001 &&
+    Math.abs(old_cam.zoom - camera.zoom) < 0.001)}
+
 function animate() {
-  render();
-  setTimeout(() => requestAnimationFrame(animate), 1000 / 60);
+  scenes.forEach(
+    function(scene, i) {
+      scene.userData.controls.update();
+    });
+  if (cam_changed()){
+    render();
+    old_cam = camera.position.clone();
+    old_cam.zoom = camera.zoom;
+  }
+  setTimeout(() => requestAnimationFrame(animate), 1000 / 30);
 }
-
-
