@@ -13,10 +13,10 @@ var app = new Vue({
     control: 0,
     runs: ["Not found"],
     event: 0,
-    events: {},
-    n_events: 100,
+    events: [[]],
+    n_events: 0,
     sample: 0,
-    n_sample: 10,
+    n_sample: 0,
     prev: Promise.resolve(),
     this_run: null,
   },
@@ -27,8 +27,9 @@ var app = new Vue({
       if (!run) return;
       this.n_sample = this.runinfo[run].n_sample-1;
       this.n_events = this.runinfo[run].n_events-1;
+      this.events = new Array(this.n_sample+1).fill(null).map(()=>
+        Array(this.n_events+1).fill(null));
       this.event = 0;
-      this.events = {};
       this.sample = 0;
       this.getData();
     },
@@ -36,15 +37,15 @@ var app = new Vue({
       getData(this);
     },
     async update (){
-      if (this.events[this.event]){
-        const evt = this.event;
-        this.prev = this.prev.then(()=>{this.slowRedraw(this.events[evt])})
+      var spl = this.sample;
+      var evt = this.event;
+      if (this.events[spl][evt]){
+        this.prev = this.prev.then(()=>{this.slowRedraw(this.events[spl][evt])})
       }else{
         const url = `./data?run=${this.this_run}&event=${this.event}&sample=${this.sample}`;
-        const evt = this.event;
         response = fetch(url).then(res => res.text());
         this.prev = Promise.all([response, this.prev])
-          .then(response => {this.events[evt] = response[0], this.slowRedraw(response[0])})
+          .then(response => {this.events[spl][evt] = response[0], this.slowRedraw(response[0])})
       }
     },
     async redraw (response){
@@ -66,7 +67,7 @@ var app = new Vue({
     }
   },
     watch:{
-      sample: function(){this.events={}; this.slowUpdate();},
+      sample: function(){this.slowUpdate();},
       event: function(){this.slowUpdate()}      
     },
     created: function () {
@@ -116,7 +117,7 @@ d3.select("#colormap g.core").append("g")
     .call(xAxis);
 
 app.refresh()
-
+animate();
 
 function getData(app){
   const Http = new XMLHttpRequest();
@@ -136,8 +137,7 @@ function getData(app){
         controls.zoomSpeed = 0.01;
         controls.noPan = true;
         scene.userData.controls = controls;
-  })
-      animate();
+      })
     }}
 }
 
