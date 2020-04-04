@@ -461,7 +461,7 @@ function setLinkColors(weights, links) {
     weights.forEach((wi, i) =>
                     wi.forEach(
                       (wij, j) =>
-                        {if (Math.abs(wij)>0.3)
+                        {if (Math.abs(wij)>0.1)
                          simple_draw(links[i][j], myscale(wij), [10,2])}
                     ))
   }
