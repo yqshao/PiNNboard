@@ -18,12 +18,13 @@ var app = new Vue({
     sample: 0,
     n_sample: 10,
     prev: Promise.resolve(),
-    this_run: "Select run"
+    this_run: null,
   },
   methods: {
     refresh: function() {getRuns(this)},
-    selectRun: function (run) {
-      this.this_run = run;
+    selectRun: function () {
+      var run = this.this_run;
+      if (!run) return;
       this.n_sample = this.runinfo[run].n_sample-1;
       this.n_events = this.runinfo[run].n_events-1;
       this.event = 0;
