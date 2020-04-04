@@ -306,18 +306,24 @@ function drawBonds(frame, bonds) {
   frame.scene.add(frame.bonds);
 }
 
-function makeAtom(elem, coord, group, out_group) {
-  var geo = new THREE.SphereGeometry(radi[elem] * 1.2, 12, 12);
-  var mat = new THREE.MeshBasicMaterial({
-    color: jmol[elem]
-  });
-  var ball = new THREE.Mesh(geo, mat);
-  var out_geo = new THREE.SphereGeometry(radi[elem] * 1.2 + 0.1, 12, 12);
-  var out_mat = new THREE.MeshBasicMaterial({
+var materials = {}
+const black =  new THREE.MeshBasicMaterial({
     color: 0x000000,
     side: THREE.BackSide
   });
-  var out_ball = new THREE.Mesh(out_geo, out_mat);
+function get_mat(color){
+  if (!materials[color]) {
+    materials[color] = new THREE.MeshBasicMaterial({color: color})
+  };
+  return materials[color]
+}
+
+function makeAtom(elem, coord, group, out_group) {
+  var geo = new THREE.SphereGeometry(radi[elem] * 1.2, 12, 12);
+  var mat = get_mat(jmol[elem])
+  var ball = new THREE.Mesh(geo, mat);
+  var out_geo = new THREE.SphereGeometry(radi[elem] * 1.2 + 0.1, 12, 12);
+  var out_ball = new THREE.Mesh(out_geo, black);
   ball.position.set(...coord);
   out_ball.position.set(...coord);
   group.add(ball);
@@ -331,7 +337,6 @@ function makeBond(coord, diff, group) {
   var distance = diff.length();
   var position = coord.add(diff.divideScalar(4));
   var geo = new THREE.CylinderGeometry(0.15, 0.15, distance / 2, 6, 1, false);
-  var mat = new THREE.MeshBasicMaterial();
   var orientation = new THREE.Matrix4();
   var offsetRotation = new THREE.Matrix4();
   var offsetPosition = new THREE.Matrix4();
@@ -339,7 +344,7 @@ function makeBond(coord, diff, group) {
   offsetRotation.makeRotationX(HALF_PI);
   orientation.multiply(offsetRotation);
   geo.applyMatrix(orientation)
-  var bond = new THREE.Mesh(geo, mat);
+  var bond = new THREE.Mesh(geo,black);
   bond.position.set(position.x, position.y, position.z);
   group.add(bond);
 }
@@ -377,8 +382,7 @@ function setAtomColors(obj, val) {
   if (!val){return};
   obj.children.forEach(
     function(child, idx) {
-      child.material.color.set(myscale(val[idx]));
-      child.colorNeedUpdate = true;
+      child.material=get_mat(myscale(val[idx]));
     })
 }
 
@@ -392,8 +396,7 @@ function setBondColors(obj, val) {
       else{
       	child.visible=true;
       }
-      child.material.color.set(myscale(val[idx]));
-      child.colorNeedUpdate = true;
+      child.material=get_mat(myscale(val[idx]));
     })
 }
 
