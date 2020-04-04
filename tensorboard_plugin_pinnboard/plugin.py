@@ -102,8 +102,7 @@ class PiNNboard(base_plugin.TBPlugin):
       if key in ['diff', 'ind_2'] or key.startswith('node_i'):
         data[key] = data[key][this_ind_2]
       if key.startswith('node'):
-        if data[key].shape[1]!=0:
-          data[key] = np.nan_to_num(data[key]/np.abs(data[key]).max(axis=0,keepdims=True))
+        data[key] = np.nan_to_num(data[key]/np.abs(data[key]).max())
         data[key] = data[key].T
       if key.startswith('weight'):
         if data[key].shape[1]!=0:
