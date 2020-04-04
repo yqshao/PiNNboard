@@ -118,7 +118,7 @@
             <v-expansion-panel-header>Control Panel</v-expansion-panel-header>
             <v-expansion-panel-content>
               <v-subheader>Select run</v-subheader>
-              <v-select class="selectrun" v-model="this_run" :items="runs" @change="selectRun()"
+              <v-select class="selectrun" v-model="this_run" :items="runs" @input="selectRun()"
               dense solor ></v-select>
               <v-subheader>Sample {{ sample+1 }} of {{ n_sample+1 }}</v-subheader>
               <v-slider v-model="sample" min=0 :max="n_sample"></v-slider>
