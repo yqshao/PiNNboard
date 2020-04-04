@@ -95,50 +95,54 @@
   width: 100px;
   height: 100px;
   }
+
+  .v-menu__content {
+      transform-origin: right top!important;
+      right: 28px !important;
+      left: unset !important;
+      width: 190px;
+  }
+  .selectrun{
+      padding: 0px;
+      padding-left: 5%;
+      padding-right: 5%;
+      margin: 0px;
+
+  }
 </style>    
   </head>
   <body>
     <div id="sidebar">
       <v-app id="controller">
-	<v-expansion-panels v-model="control"><v-expansion-panel>
-	    <v-expansion-panel-header>Control Panel</v-expansion-panel-header>
+        <v-expansion-panels v-model="control"><v-expansion-panel>
+            <v-expansion-panel-header>Control Panel</v-expansion-panel-header>
             <v-expansion-panel-content>
-	      <v-subheader>Run</v-subheader>
-	      <v-menu>
-		<template v-slot:activator="{ on }">
-		  <v-btn color="primary" v-on="on">
-		    {{ this_run }}
-		  </v-btn>
-		</template>
-		<v-list>
-		  <v-list-item v-for="(run, index) in runs" :key="index" @click="selectRun(run)" >
-		    <v-list-item-title>{{ run }}</v-list-item-title>
-		  </v-list-item>
-		</v-list>
-	      </v-menu>
-	      <v-subheader>Sample {{ sample+1 }} of {{ n_sample+1 }}</v-subheader>
-   	      <v-slider v-model="sample" min=0 :max="n_sample"></v-slider>
-	      <v-subheader>Event {{ event+1 }} of {{ n_events+1 }}</v-subheader>
-	      <v-slider v-model="event" min=0 :max="n_events"></v-slider>
-	      <v-subheader>Colormap</v-subheader>	      
-	      <svg width="100%" height="30" id="colormap">
-		<defs>
-		  <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
+              <v-subheader>Select run</v-subheader>
+              <v-select class="selectrun" v-model="this_run" :items="runs" @change="selectRun()"
+              dense solor ></v-select>
+              <v-subheader>Sample {{ sample+1 }} of {{ n_sample+1 }}</v-subheader>
+              <v-slider v-model="sample" min=0 :max="n_sample"></v-slider>
+              <v-subheader>Event {{ event+1 }} of {{ n_events+1 }}</v-subheader>
+              <v-slider v-model="event" min=0 :max="n_events"></v-slider>
+              <v-subheader>Colormap</v-subheader>
+              <svg width="100%" height="30" id="colormap">
+                <defs>
+                  <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
                     <stop offset="0%" stop-color="#f59322" stop-opacity="1"></stop>
                     <stop offset="50%" stop-color="#ffffff" stop-opacity="1"></stop>
                     <stop offset="100%" stop-color="#0877bd" stop-opacity="1"></stop>
-		  </linearGradient>
-		</defs>
-		<g class="core" transform="translate(10, 0)">
-		  <rect width="180" height="10" style="fill: url('#gradient');"></rect>
-		</g>
+                  </linearGradient>
+                </defs>
+                <g class="core" transform="translate(10, 0)">
+                  <rect width="180" height="10" style="fill: url('#gradient');"></rect>
+                </g>
               </svg>
-	    </v-expansion-panel-content>
-	</v-expansion-panel></v-expansion-panels>
+            </v-expansion-panel-content>
+        </v-expansion-panel></v-expansion-panels>
       </v-app>
-    </div>      
+    </div>
+    <canvas id='pinn-canvas'></canvas>
     <div id="app">
-      <canvas id='pinn-canvas'></canvas>
       <div id='pinn-content'></div>
       <canvas id='pinn-links'></canvas>
     </div>
