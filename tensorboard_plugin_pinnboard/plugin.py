@@ -112,7 +112,7 @@ class PiNNboard(base_plugin.TBPlugin):
     data['ind_2'] -= data['ind_2'].min()
     data['coord'] -= (data['coord'].min(axis=0)+data['coord'].max(axis=0))/2
     del data['ind_1']
-    data = {k: v.round(3).astype(str).astype(float).tolist()
+    data = {k: v.round(2).astype(str).astype(float).tolist()
             if k not in ['ind_1', 'ind_2', 'elems'] else v.tolist()
             for k,v in data.items()}
 
