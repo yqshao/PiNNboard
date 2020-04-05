@@ -7,6 +7,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import six
+from tensorboard.backend.http_util import Respond
 from tensorboard.plugins import base_plugin
 from tensorboard.util import tensor_util
 import werkzeug
@@ -62,7 +63,6 @@ class PiNNboard(base_plugin.TBPlugin):
 
   @wrappers.Request.application
   def _serve_runs(self, request):
-    del request  # unused
     mapping = self._multiplexer.PluginRunToTagToContent(metadata.PLUGIN_NAME)
     result = {run: {} for run in self._multiplexer.Runs()}
     for (run, tag_to_content) in six.iteritems(mapping):
@@ -71,7 +71,7 @@ class PiNNboard(base_plugin.TBPlugin):
       result[run]['n_events'] = len(tensor_events)
       result[run]['n_sample'] = int(np.max(ind_1) + 1)
     contents = json.dumps(result, sort_keys=True)
-    return werkzeug.Response(contents, content_type="application/json")
+    return Respond(request, contents, "application/json")
 
   @wrappers.Request.application
   def _serve_data(self, request):
@@ -116,4 +116,4 @@ class PiNNboard(base_plugin.TBPlugin):
             for k,v in data.items()}
 
     contents = json.dumps(data)
-    return werkzeug.Response(contents, content_type="application/json")
+    return Respond(request, contents, "application/json")
