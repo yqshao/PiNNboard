@@ -64,12 +64,13 @@ class PiNNboard(base_plugin.TBPlugin):
   @wrappers.Request.application
   def _serve_runs(self, request):
     mapping = self._multiplexer.PluginRunToTagToContent(metadata.PLUGIN_NAME)
-    result = {run: {} for run in self._multiplexer.Runs()}
+    result = {}
     for (run, tag_to_content) in six.iteritems(mapping):
       tensor_events = self._multiplexer.Tensors(run, 'pinnboard.ind_1')
       ind_1 = tf.make_ndarray(tensor_events[0].tensor_proto)
-      result[run]['n_events'] = len(tensor_events)
-      result[run]['n_sample'] = int(np.max(ind_1) + 1)
+      result[run] = {
+        'n_events': len(tensor_events),
+        'n_sample': int(np.max(ind_1) + 1)}
     contents = json.dumps(result, sort_keys=True)
     return Respond(request, contents, "application/json")
 
