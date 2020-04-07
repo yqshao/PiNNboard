@@ -90,6 +90,7 @@ var thisapp = document.getElementById("app");
 var ctx = document.getElementById("pinn-links").getContext("2d");
 var linker = d3.linkHorizontal();
 
+
 var renderer = new THREE.WebGLRenderer({
   canvas: canvas,
   antialias: true,
@@ -455,7 +456,7 @@ function setLinkColors(weights, links) {
     ctx.setLineDash([]);
     links.forEach(
       (link) => simple_draw(link, "#666666", []))
-    ctx.setLineDash([10, 4]);
+    ctx.setLineDash([10, 2]);
   } else {
     wdim2 = weights[0].length;
     weights.forEach((wi, i) =>
