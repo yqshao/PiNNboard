@@ -90,6 +90,7 @@ var thisapp = document.getElementById("app");
 var ctx = document.getElementById("pinn-links").getContext("2d");
 var linker = d3.linkHorizontal();
 
+
 var renderer = new THREE.WebGLRenderer({
   canvas: canvas,
   antialias: true,
@@ -508,7 +509,7 @@ function initialize(atoms, tenors) {
     weight.order = frames[weight.to.g][weight.to.c].inputs += 1
   });
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1;
   links = weights.map(weight => drawLinks(weight,
     frames[weight.from.g][weight.from.c], frames[weight.to.g][weight.to.c]));
   ctx.setLineDash([10, 2])
