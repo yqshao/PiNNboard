@@ -1,3 +1,6 @@
+/**
+ * Renders the main app page
+ */
 export async function render() {
   const style = document.createElement('style');
   style.innerText = `
